@@ -8,7 +8,7 @@ use chrono::Utc;
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
 use sqlx::{PgPool, Postgres, Transaction};
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
 use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
@@ -17,13 +17,13 @@ pub struct FormData {
     name: String,
 }
 
-impl TryInto<NewSubscriber> for FormData {
+impl TryFrom<FormData> for NewSubscriber {
     type Error = String;
 
-    fn try_into(self) -> Result<NewSubscriber, Self::Error> {
-        let name = SubscriberName::parse(self.name)?;
-        let email = SubscriberEmail::parse(self.email)?;
-        Ok(NewSubscriber { email, name })
+    fn try_from(value: FormData) -> Result<Self, Self::Error> {
+        let name = SubscriberName::parse(value.name)?;
+        let email = SubscriberEmail::parse(value.email)?;
+        Ok(Self { email, name })
     }
 }
 
@@ -54,8 +54,8 @@ impl ResponseError for SubscribeError {
     name = "Adding a new subscriber",
     skip(form, pool, email_client, base_url),
     fields(
-        email = %form.email,
-        name = %form.name
+        subscriber_email = %form.email,
+        subscriber_name = %form.name
     )
 )]
 pub async fn subscribe(
@@ -122,7 +122,7 @@ pub async fn send_confirmation_email(
         confirmation_link
     );
     email_client
-        .send_email(new_subscriber.email, "Welcome!", &html_body, &plain_body)
+        .send_email(&new_subscriber.email, "Welcome!", &html_body, &plain_body)
         .await
 }
 
